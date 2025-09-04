@@ -36,11 +36,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Atualizar estatísticas da fila
       await broadcastQueueStats();
       
-      res.status(201).json({
-        sucesso: true,
+      // Retornar HTTP 202 Accepted imediatamente após publicação
+      res.status(202).json({
         mensagemId: validatedData.mensagemId,
-        notificacaoId: notification.id,
-        mensagem: "Notificação enviada com sucesso"
+        status: "aceito",
+        mensagem: "Requisição recebida e será processada assincronamente"
       });
     } catch (error) {
       console.error('Erro ao processar notificação:', error);
