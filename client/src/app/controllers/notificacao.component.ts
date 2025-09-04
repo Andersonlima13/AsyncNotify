@@ -4,155 +4,26 @@ import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 
+import { NotificationService } from '../services/notification.service';
 import { 
-  NotificationService, 
-  NotificationRequest,
-  StatusResponse 
-} from '../services/notification.service';
+  NotificationRequest, 
+  StatusResponse, 
+  SentNotification,
+  StatusHistoryEntry,
+  MessageUpdate
+} from '../models/notification.model';
 
 @Component({
   selector: 'app-notificacao',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
-  template: `
-    <div class="bg-white shadow rounded-lg p-6 mb-8">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">
-        Enviar Nova Notificação
-      </h3>
-      
-      <form [formGroup]="notificationForm" (ngSubmit)="onSubmit()" class="space-y-4">
-        <!-- ID da mensagem (somente leitura) -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            ID da Mensagem (Gerado Automaticamente)
-          </label>
-          <input
-            type="text"
-            [value]="currentMessageId"
-            readonly
-            class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
-          />
-        </div>
-
-        <div>
-          <label for="conteudoMensagem" class="block text-sm font-medium text-gray-700 mb-1">
-            Conteúdo da Mensagem
-          </label>
-          <textarea
-            id="conteudoMensagem"
-            formControlName="conteudoMensagem"
-            rows="4"
-            placeholder="Digite o conteúdo da sua notificação aqui..."
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            [class.border-red-500]="notificationForm.get('conteudoMensagem')?.invalid && notificationForm.get('conteudoMensagem')?.touched"
-          ></textarea>
-          <div *ngIf="notificationForm.get('conteudoMensagem')?.invalid && notificationForm.get('conteudoMensagem')?.touched" 
-               class="mt-1 text-sm text-red-600">
-            O conteúdo da mensagem é obrigatório
-          </div>
-        </div>
-
-        <div>
-          <button
-            type="submit"
-            [disabled]="notificationForm.invalid || isSubmitting"
-            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span *ngIf="!isSubmitting">Enviar Notificação</span>
-            <span *ngIf="isSubmitting">Enviando...</span>
-          </button>
-        </div>
-      </form>
-
-      <!-- Mensagem de sucesso/erro -->
-      <div *ngIf="message" class="mt-6">
-        <div [class]="messageClass" class="p-4 rounded-md">
-          {{message}}
-        </div>
-      </div>
-    </div>
-
-    <!-- Lista de notificações enviadas -->
-    <div class="bg-white shadow rounded-lg">
-      <div class="px-6 py-4 border-b border-gray-200">
-        <h3 class="text-lg font-medium text-gray-900">
-          Notificações Enviadas
-        </h3>
-      </div>
-      
-      <ul class="divide-y divide-gray-200">
-        <li *ngIf="sentNotifications.length === 0" class="px-6 py-4 text-gray-500 text-center">
-          Nenhuma notificação enviada ainda
-        </li>
-        
-        <li *ngFor="let notification of sentNotifications" class="px-6 py-4">
-          <div class="space-y-3">
-            <!-- Cabeçalho com status atual -->
-            <div class="flex items-center justify-between">
-              <div class="text-sm font-medium text-gray-900">
-                ID: {{notification.mensagemId}}
-              </div>
-              <span [class]="getStatusClass(notification.status)" class="px-2 py-1 text-xs font-medium rounded-full">
-                {{getStatusText(notification.status)}}
-              </span>
-            </div>
-            
-            <!-- Conteúdo da mensagem -->
-            <div class="bg-gray-50 p-3 rounded-md">
-              <div class="text-sm text-gray-700">
-                <strong>Conteúdo:</strong> {{notification.conteudoMensagem}}
-              </div>
-              <div class="text-xs text-gray-500 mt-1">
-                <strong>ID da Mensagem:</strong> {{notification.mensagemId}}
-              </div>
-            </div>
-            
-            <!-- Histórico de status -->
-            <div class="border-t pt-2">
-              <div class="text-xs font-medium text-gray-700 mb-2">Histórico de Status:</div>
-              <div class="space-y-1">
-                <div *ngFor="let statusEntry of notification.statusHistory" class="flex items-center justify-between text-xs">
-                  <span class="text-gray-600">{{getStatusText(statusEntry.status)}}</span>
-                  <span class="text-gray-500">{{formatDate(statusEntry.timestamp)}}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </li>
-      </ul>
-      
-      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200">
-        <button
-          (click)="refreshStatus()"
-          [disabled]="isRefreshing"
-          class="text-sm text-blue-600 hover:text-blue-800 focus:outline-none"
-        >
-          <span *ngIf="!isRefreshing">Atualizar Status</span>
-          <span *ngIf="isRefreshing">Atualizando...</span>
-        </button>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .loading {
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-  `]
+  templateUrl: '../views/notificacao.component.html',
+  styleUrls: ['../views/notificacao.component.css']
 })
 export class NotificacaoComponent implements OnInit, OnDestroy {
   notificationForm: FormGroup;
   currentMessageId: string = '';
-  sentNotifications: Array<{
-    mensagemId: string; 
-    conteudoMensagem: string; 
-    status: string;
-    statusHistory: Array<{status: string; timestamp: Date}>
-  }> = [];
+  sentNotifications: SentNotification[] = [];
   
   isSubmitting = false;
   isRefreshing = false;
@@ -317,7 +188,7 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
   private setupWebSocketListeners(): void {
     // Escutar atualizações de status via WebSocket
     const statusSubscription = this.notificationService.messageStatusUpdate$.subscribe(
-      (update) => {
+      (update: MessageUpdate | null) => {
         if (update) {
           this.updateNotificationStatus(update.mensagemId, update.status);
         }

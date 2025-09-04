@@ -2,65 +2,19 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 
-import { NotificationService } from '../services/notification.service';
-import { NotificacaoComponent } from '../components/notificacao.component';
+import { NotificationService } from '../../services/notification.service';
+import { NotificacaoComponent } from '../notificacao.component';
+import { DashboardStats, MessageUpdate } from '../../models/notification.model';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, NotificacaoComponent],
-  template: `
-    <div class="px-4 py-6 sm:px-0">
-      <div class="border-4 border-dashed border-gray-200 rounded-lg p-6">
-        
-        <!-- Título e descrição -->
-        <div class="mb-8">
-          <h2 class="text-2xl font-bold text-gray-900 mb-2">
-            Painel de Notificações
-          </h2>
-          <p class="text-gray-600">
-            Envie notificações e acompanhe o processamento em tempo real
-          </p>
-        </div>
-
-        <!-- Estatísticas em tempo real -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div class="bg-blue-50 p-4 rounded-lg">
-            <div class="text-2xl font-bold text-blue-600">{{stats.pending}}</div>
-            <div class="text-sm text-blue-800">Pendentes</div>
-          </div>
-          <div class="bg-yellow-50 p-4 rounded-lg">
-            <div class="text-2xl font-bold text-yellow-600">{{stats.processing}}</div>
-            <div class="text-sm text-yellow-800">Processando</div>
-          </div>
-          <div class="bg-green-50 p-4 rounded-lg">
-            <div class="text-2xl font-bold text-green-600">{{stats.completed}}</div>
-            <div class="text-sm text-green-800">Concluídas</div>
-          </div>
-          <div class="bg-red-50 p-4 rounded-lg">
-            <div class="text-2xl font-bold text-red-600">{{stats.failed}}</div>
-            <div class="text-sm text-red-800">Falharam</div>
-          </div>
-        </div>
-
-        <!-- Componente de Notificação -->
-        <app-notificacao></app-notificacao>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .loading {
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-  `]
+  templateUrl: '../../views/dashboard.component.html',
+  styleUrls: ['../../views/dashboard.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  stats = { pending: 0, processing: 0, completed: 0, failed: 0 };
+  stats: DashboardStats = { pending: 0, processing: 0, completed: 0, failed: 0 };
   
   // Array para manter todas as mensagens e seus status
   private allMessages: Array<{mensagemId: string; status: string}> = [];
@@ -74,7 +28,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Escutar atualizações de status das mensagens
     const messageStatusSubscription = this.notificationService.messageStatusUpdate$.subscribe(
-      (update) => {
+      (update: MessageUpdate | null) => {
         if (update) {
           this.updateMessageStatus(update.mensagemId, update.status);
         }
@@ -84,7 +38,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Escutar quando uma nova mensagem é criada
     const messageCreatedSubscription = this.notificationService.messageCreated$.subscribe(
-      (newMessage) => {
+      (newMessage: MessageUpdate | null) => {
         if (newMessage) {
           this.addNewMessage(newMessage.mensagemId, newMessage.status);
         }

@@ -1,24 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
-
-export interface NotificationRequest {
-  mensagemId: string;
-  conteudoMensagem: string;
-}
-
-export interface NotificationResponse {
-  mensagemId: string;
-  status: string;
-  mensagem: string;
-}
-
-export interface StatusResponse {
-  sucesso: boolean;
-  mensagemId?: string;
-  status?: string;
-  mensagens?: Array<{mensagemId: string; status: string}>;
-}
+import { 
+  NotificationRequest, 
+  NotificationResponse, 
+  StatusResponse, 
+  MessageUpdate 
+} from '../models/notification.model';
 
 export interface QueueStats {
   success: boolean;
@@ -43,16 +31,9 @@ export class NotificationService {
     failed: 0
   });
 
-  private messageStatusSubject = new BehaviorSubject<{
-    mensagemId: string;
-    status: string;
-    timestamp: string;
-  } | null>(null);
+  private messageStatusSubject = new BehaviorSubject<MessageUpdate | null>(null);
 
-  private messageCreatedSubject = new BehaviorSubject<{
-    mensagemId: string;
-    status: string;
-  } | null>(null);
+  private messageCreatedSubject = new BehaviorSubject<MessageUpdate | null>(null);
 
   public stats$ = this.statsSubject.asObservable();
   public messageStatusUpdate$ = this.messageStatusSubject.asObservable();
@@ -107,8 +88,7 @@ export class NotificationService {
           // Emitir evento para componentes escutarem atualizações de status
           this.messageStatusSubject.next({
             mensagemId: data.mensagemId,
-            status: data.status,
-            timestamp: data.timestamp
+            status: data.status
           });
         }
       } catch (error) {
