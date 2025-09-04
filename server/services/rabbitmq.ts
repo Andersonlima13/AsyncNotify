@@ -4,7 +4,7 @@ import { NotificationStatus } from '@shared/schema';
 import { broadcastStatusUpdate } from './websocket';
 
 const RABBITMQ_URL = 'amqp://bjnuffmq:gj-YQIiEXyfxQxjsZtiYDKeXIT8ppUq7@jaragua-01.lmq.cloudamqp.com/bjnuffmq';
-const QUEUE_NAME = 'notifications';
+const QUEUE_NAME = 'fila.notificacao.entrada.replit';
 
 let connection: Connection | null = null;
 let channel: Channel | null = null;
