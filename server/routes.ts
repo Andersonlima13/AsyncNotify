@@ -37,16 +37,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Erro ao processar notificação:', error);
       
-      if (error instanceof Error && error.message.includes('mensagemId') || error instanceof Error && error.message.includes('conteudoMensagem')) {
+      // Tratamento específico para erros de validação Zod
+      if (error && typeof error === 'object' && 'issues' in error) {
+        const zodError = error as any;
+        const firstIssue = zodError.issues[0];
         return res.status(400).json({
           sucesso: false,
-          erro: error.message
+          erro: firstIssue.message,
+          campo: firstIssue.path[0]
         });
       }
       
-      res.status(400).json({
+      res.status(500).json({
         sucesso: false,
-        erro: "Falha ao processar notificação"
+        erro: "Falha interna ao processar notificação"
       });
     }
   });
