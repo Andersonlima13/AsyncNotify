@@ -3,9 +3,9 @@ import { storage } from '../storage';
 import { NotificationStatus } from '@shared/schema';
 import { broadcastStatusUpdate, broadcastMessageStatusUpdate } from './websocket';
 
-const RABBITMQ_URL = 'amqp://bjnuffmq:gj-YQIiEXyfxQxjsZtiYDKeXIT8ppUq7@jaragua-01.lmq.cloudamqp.com/bjnuffmq';
-const ENTRADA_QUEUE_NAME = 'fila.notificacao.entrada.Anderson-Lima';
-const STATUS_QUEUE_NAME = 'fila.notificacao.status.Anderson-Lima';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://admin:admin123@localhost:5672/notification_vhost';
+const ENTRADA_QUEUE_NAME = process.env.ENTRADA_QUEUE_NAME || 'fila.notificacao.entrada.Anderson-Lima';
+const STATUS_QUEUE_NAME = process.env.STATUS_QUEUE_NAME || 'fila.notificacao.status.Anderson-Lima';
 
 // Map global para armazenar status das mensagens
 export const messageStatusMap = new Map<string, string>();
@@ -15,6 +15,7 @@ let channel: Channel | null = null;
 
 export async function connectRabbitMQ(): Promise<void> {
   try {
+    console.log(`Tentando conectar ao RabbitMQ: ${RABBITMQ_URL}`);
     connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
     
@@ -24,6 +25,9 @@ export async function connectRabbitMQ(): Promise<void> {
     
     // Setup consumer para fila de entrada
     await setupEntradaConsumer();
+    
+    // Criar fila de notifications para compatibilidade
+    await channel.assertQueue('notifications', { durable: true });
     
     // Setup consumer existente para compatibilidade
     await channel.consume('notifications', async (msg) => {
@@ -39,15 +43,24 @@ export async function connectRabbitMQ(): Promise<void> {
       }
     });
 
-    console.log('Conectado ao RabbitMQ e escutando mensagens');
+    console.log('✓ RabbitMQ conectado com sucesso');
   } catch (error) {
     console.error('Falha ao conectar ao RabbitMQ:', error);
+    // Em desenvolvimento, permite continuar sem RabbitMQ
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  Continuando sem RabbitMQ (modo desenvolvimento)');
+      return;
+    }
     throw error;
   }
 }
 
 export async function publishNotification(notificationId: string): Promise<void> {
   if (!channel) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`⚠️  RabbitMQ não disponível - simulando processamento da notificação: ${notificationId}`);
+      return;
+    }
     throw new Error('Canal RabbitMQ não disponível');
   }
 
@@ -74,6 +87,15 @@ export async function publishNotification(notificationId: string): Promise<void>
 // Função específica para publicar mensagem do endpoint /api/notificar
 export async function publishDirectMessage(mensagemId: string, conteudoMensagem: string): Promise<void> {
   if (!channel) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`⚠️  RabbitMQ não disponível - simulando processamento da mensagem: ${mensagemId}`);
+      // Simular processamento em desenvolvimento
+      setTimeout(() => {
+        messageStatusMap.set(mensagemId, 'PROCESSADO_SUCESSO');
+        broadcastMessageStatusUpdate(mensagemId, 'PROCESSADO_SUCESSO');
+      }, 2000);
+      return;
+    }
     throw new Error('Canal RabbitMQ não disponível');
   }
 
@@ -232,10 +254,14 @@ export function getAllMessageStatus(): Map<string, string> {
 }
 
 export async function closeRabbitMQ(): Promise<void> {
-  if (channel) {
-    await channel.close();
-  }
-  if (connection) {
-    await connection.close();
+  try {
+    if (channel) {
+      await channel.close();
+    }
+    if (connection) {
+      await connection.close();
+    }
+  } catch (error) {
+    console.error('Erro ao fechar conexão RabbitMQ:', error);
   }
 }
