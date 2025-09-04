@@ -104,7 +104,8 @@ class NotificationSystem {
                     id="mensagemId"
                     name="mensagemId"
                     placeholder="550e8400-e29b-41d4-a716-446655440000"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                    readonly
                     required
                   />
                   <div id="mensagemId-error" class="mt-1 text-sm text-red-600" style="display: none;"></div>
@@ -245,6 +246,9 @@ class NotificationSystem {
           mensagemId: notification.mensagemId,
           status: 'AGUARDANDO_PROCESSAMENTO'
         });
+        
+        // Incrementar contador de pendentes
+        this.updateStatsFromMessage('AGUARDANDO_PROCESSAMENTO');
         
         this.generateUUID();
         (document.getElementById('conteudoMensagem') as HTMLTextAreaElement).value = '';
@@ -414,6 +418,28 @@ class NotificationSystem {
     document.getElementById('failed-count')!.textContent = this.stats.failed.toString();
   }
 
+  private updateStatsFromMessage(status: string): void {
+    // Atualizar contadores locais baseado no status da mensagem
+    switch (status) {
+      case 'AGUARDANDO_PROCESSAMENTO':
+        this.stats.pending++;
+        break;
+      case 'PROCESSANDO':
+        this.stats.pending = Math.max(0, this.stats.pending - 1);
+        this.stats.processing++;
+        break;
+      case 'PROCESSADO_SUCESSO':
+        this.stats.processing = Math.max(0, this.stats.processing - 1);
+        this.stats.completed++;
+        break;
+      case 'FALHA_PROCESSAMENTO':
+        this.stats.processing = Math.max(0, this.stats.processing - 1);
+        this.stats.failed++;
+        break;
+    }
+    this.updateStats();
+  }
+
   private connectWebSocket(): void {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -427,7 +453,7 @@ class NotificationSystem {
     this.websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'queue-stats') {
+        if (data.type === 'queue-stats' || data.type === 'queue_stats') {
           this.stats = data.stats;
           this.updateStats();
         } else if (data.type === 'message-status-update') {
@@ -436,6 +462,8 @@ class NotificationSystem {
             mensagemId: data.mensagemId,
             status: data.status
           });
+          // Atualizar estatísticas localmente baseado no status da mensagem
+          this.updateStatsFromMessage(data.status);
         }
       } catch (error) {
         console.error('Erro ao processar mensagem WebSocket:', error);
