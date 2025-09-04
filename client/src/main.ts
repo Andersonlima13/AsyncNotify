@@ -1,4 +1,6 @@
 // Sistema de Notificações - Frontend Vanilla TypeScript
+import { v4 as uuidv4 } from 'uuid';
+
 interface NotificationRequest {
   mensagemId: string;
   conteudoMensagem: string;
@@ -253,11 +255,7 @@ class NotificationSystem {
   }
 
   private generateUUID(): void {
-    const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+    const uuid = uuidv4();
     (document.getElementById('mensagemId') as HTMLInputElement).value = uuid;
   }
 
