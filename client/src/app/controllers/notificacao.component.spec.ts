@@ -51,26 +51,15 @@ describe('NotificacaoComponent', () => {
   });
 
   describe('Geração do mensagemId', () => {
-    it('deve gerar um UUID válido automaticamente no ngOnInit', () => {
-      expect(component.currentMessageId).toBeDefined();
-      expect(component.currentMessageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    it('deve iniciar sem UUID', () => {
+      expect(component.currentMessageId).toBe('');
     });
-
-    it('deve gerar um novo UUID diferente quando generateUUID() é chamado', () => {
-      const originalId = component.currentMessageId;
-      
-      component.generateUUID();
-      
-      expect(component.currentMessageId).toBeDefined();
-      expect(component.currentMessageId).not.toBe(originalId);
-      expect(component.currentMessageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
-    });
-  });
-
-  describe('Envio da requisição POST', () => {
-    it('deve enviar uma requisição POST para /api/notificar com os dados corretos', () => {
+    
+    it('deve gerar UUID apenas no momento do envio', () => {
       const conteudoMensagem = 'Teste de mensagem';
-      const expectedMensagemId = component.currentMessageId;
+      
+      // Verificar que não há UUID inicialmente
+      expect(component.currentMessageId).toBe('');
       
       // Preencher o formulário
       component.notificationForm.patchValue({
@@ -80,9 +69,28 @@ describe('NotificacaoComponent', () => {
       // Executar o submit
       component.onSubmit();
 
-      // Verificar se o serviço foi chamado com os dados corretos
+      // Verificar se o UUID foi gerado durante o envio
+      expect(component.currentMessageId).toBeTruthy();
+      expect(component.currentMessageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    });
+  });
+
+  describe('Envio da requisição POST', () => {
+    it('deve enviar uma requisição POST para /api/notificar com os dados corretos', () => {
+      const conteudoMensagem = 'Teste de mensagem';
+      
+      // Preencher o formulário
+      component.notificationForm.patchValue({
+        conteudoMensagem: conteudoMensagem
+      });
+
+      // Executar o submit
+      component.onSubmit();
+
+      // Verificar se o UUID foi gerado e se o serviço foi chamado
+      expect(component.currentMessageId).toBeTruthy();
       expect(mockNotificationService.sendNotification).toHaveBeenCalledWith({
-        mensagemId: expectedMensagemId,
+        mensagemId: component.currentMessageId,
         conteudoMensagem: conteudoMensagem
       });
     });
@@ -122,7 +130,6 @@ describe('NotificacaoComponent', () => {
   describe('Adição inicial da notificação à lista', () => {
     it('deve adicionar a notificação à lista com status ENVIADO após envio bem-sucedido', async () => {
       const conteudoMensagem = 'Mensagem de teste';
-      const expectedMensagemId = component.currentMessageId;
       
       component.notificationForm.patchValue({
         conteudoMensagem: conteudoMensagem
@@ -140,7 +147,8 @@ describe('NotificacaoComponent', () => {
       expect(component.sentNotifications.length).toBe(1);
       
       const addedNotification = component.sentNotifications[0];
-      expect(addedNotification.mensagemId).toBe(expectedMensagemId);
+      expect(addedNotification.mensagemId).toBeTruthy();
+      expect(addedNotification.mensagemId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
       expect(addedNotification.conteudoMensagem).toBe(conteudoMensagem);
       expect(addedNotification.status).toBe('ENVIADO');
       expect(addedNotification.statusHistory.length).toBe(1);
@@ -150,7 +158,6 @@ describe('NotificacaoComponent', () => {
 
     it('deve notificar o serviço sobre a criação da mensagem', async () => {
       const conteudoMensagem = 'Mensagem de teste';
-      const expectedMensagemId = component.currentMessageId;
       
       component.notificationForm.patchValue({
         conteudoMensagem: conteudoMensagem
@@ -163,14 +170,13 @@ describe('NotificacaoComponent', () => {
 
       // Verificar se o serviço foi notificado
       expect(mockNotificationService.notifyMessageCreated).toHaveBeenCalledWith(
-        expectedMensagemId,
+        component.currentMessageId,
         'ENVIADO'
       );
     });
 
-    it('deve limpar o formulário e gerar novo UUID após envio bem-sucedido', async () => {
+    it('deve limpar o formulário e o UUID após envio bem-sucedido', async () => {
       const conteudoMensagem = 'Mensagem de teste';
-      const originalId = component.currentMessageId;
       
       component.notificationForm.patchValue({
         conteudoMensagem: conteudoMensagem
@@ -184,13 +190,12 @@ describe('NotificacaoComponent', () => {
       // Verificar se o formulário foi limpo
       expect(component.notificationForm.get('conteudoMensagem')?.value).toBe('');
       
-      // Verificar se um novo UUID foi gerado
-      expect(component.currentMessageId).not.toBe(originalId);
+      // Verificar se o UUID foi limpo
+      expect(component.currentMessageId).toBe('');
     });
 
     it('deve exibir mensagem de sucesso após envio bem-sucedido', async () => {
       const conteudoMensagem = 'Mensagem de teste';
-      const expectedMensagemId = component.currentMessageId;
       
       component.notificationForm.patchValue({
         conteudoMensagem: conteudoMensagem

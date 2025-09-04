@@ -42,7 +42,6 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.generateUUID();
     this.loadSentNotifications();
     this.setupWebSocketListeners();
   }
@@ -51,14 +50,17 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  generateUUID(): void {
-    this.currentMessageId = uuidv4();
+  private generateUUID(): string {
+    return uuidv4();
   }
 
   onSubmit(): void {
     if (this.notificationForm.valid) {
       this.isSubmitting = true;
       this.message = '';
+      
+      // Gerar UUID apenas no momento do envio
+      this.currentMessageId = this.generateUUID();
       
       const notification: NotificationRequest = {
         mensagemId: this.currentMessageId,
@@ -82,8 +84,9 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
           // Notificar o serviço que uma mensagem foi criada
           this.notificationService.notifyMessageCreated(this.currentMessageId, 'ENVIADO');
           
-          this.generateUUID(); // Gerar novo UUID
+          // Limpar o formulário e o ID atual
           this.notificationForm.patchValue({ conteudoMensagem: '' });
+          this.currentMessageId = ''; // Limpar o ID após envio
           this.refreshStatus();
         },
         error: (error: any) => {
