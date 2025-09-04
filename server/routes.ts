@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertNotificationSchema, notificarSchema } from "@shared/schema";
-import { publishNotification, connectRabbitMQ } from "./services/rabbitmq";
+import { publishNotification, publishDirectMessage, getMessageStatus, getAllMessageStatus, connectRabbitMQ } from "./services/rabbitmq";
 import { setupWebSocket, broadcastQueueStats, broadcastSystemEvent } from "./services/websocket";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -22,16 +22,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = notificarSchema.parse(req.body);
       
-      // Criar notificação usando os dados validados
-      const notification = await storage.createNotification({
-        recipient: "sistema", // Valor padrão para compatibilidade
-        subject: `Mensagem ${validatedData.mensagemId}`,
-        message: validatedData.conteudoMensagem,
-        priority: "medium"
-      });
-      
-      // Publicar no RabbitMQ
-      await publishNotification(notification.id);
+      // Publicar diretamente na fila de entrada usando a nova função
+      await publishDirectMessage(validatedData.mensagemId, validatedData.conteudoMensagem);
       
       // Atualizar estatísticas da fila
       await broadcastQueueStats();
@@ -140,6 +132,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: "Falha ao buscar estatísticas da fila"
+      });
+    }
+  });
+
+  // GET /api/status/:mensagemId - Consultar status de uma mensagem específica
+  app.get("/api/status/:mensagemId", async (req, res) => {
+    try {
+      const { mensagemId } = req.params;
+      const status = getMessageStatus(mensagemId);
+      
+      if (status) {
+        res.json({
+          sucesso: true,
+          mensagemId,
+          status
+        });
+      } else {
+        res.status(404).json({
+          sucesso: false,
+          mensagem: "Mensagem não encontrada"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao consultar status da mensagem:', error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Falha ao consultar status da mensagem"
+      });
+    }
+  });
+
+  // GET /api/status - Consultar status de todas as mensagens
+  app.get("/api/status", async (req, res) => {
+    try {
+      const allStatus = getAllMessageStatus();
+      const statusArray = Array.from(allStatus.entries()).map(([mensagemId, status]) => ({
+        mensagemId,
+        status
+      }));
+      
+      res.json({
+        sucesso: true,
+        mensagens: statusArray
+      });
+    } catch (error) {
+      console.error('Erro ao consultar status das mensagens:', error);
+      res.status(500).json({
+        sucesso: false,
+        mensagem: "Falha ao consultar status das mensagens"
       });
     }
   });
