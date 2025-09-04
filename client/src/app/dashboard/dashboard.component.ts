@@ -69,14 +69,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Escutar atualizações de estatísticas em tempo real
-    const statsSubscription = this.notificationService.stats$.subscribe(
-      (stats: any) => this.stats = stats
+    // Escutar atualizações de status das mensagens para atualizar contadores
+    const messageStatusSubscription = this.notificationService.messageStatusUpdate$.subscribe(
+      (update) => {
+        if (update) {
+          this.updateStatsCounters(update.status);
+        }
+      }
     );
-    this.subscriptions.push(statsSubscription);
+    this.subscriptions.push(messageStatusSubscription);
+
+    // Escutar quando uma nova mensagem é criada
+    const messageCreatedSubscription = this.notificationService.messageCreated$.subscribe(
+      (newMessage) => {
+        if (newMessage) {
+          this.updateStatsCounters(newMessage.status);
+        }
+      }
+    );
+    this.subscriptions.push(messageCreatedSubscription);
 
     // Carregar dados iniciais
     this.loadInitialData();
+    this.loadStatsFromLocalStorage();
   }
 
   ngOnDestroy(): void {
@@ -85,16 +100,67 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   private loadInitialData(): void {
-    // Carregar estatísticas iniciais
-    const statsSubscription = this.notificationService.getQueueStats().subscribe({
-      next: (response: any) => {
-        if (response.success) {
-          this.stats = response.stats;
+    // Carregar estatísticas de mensagens existentes do localStorage
+    this.calculateStatsFromSentNotifications();
+  }
+
+  private loadStatsFromLocalStorage(): void {
+    const saved = localStorage.getItem('dashboardStats');
+    if (saved) {
+      this.stats = JSON.parse(saved);
+    }
+  }
+
+  private calculateStatsFromSentNotifications(): void {
+    const saved = localStorage.getItem('sentNotifications');
+    if (saved) {
+      const sentNotifications = JSON.parse(saved);
+      
+      // Resetar contadores
+      this.stats = { pending: 0, processing: 0, completed: 0, failed: 0 };
+      
+      // Contar por status atual
+      sentNotifications.forEach((notification: any) => {
+        this.updateStatsCounters(notification.status);
+      });
+      
+      this.saveStats();
+    }
+  }
+
+  private updateStatsCounters(status: string): void {
+    switch (status) {
+      case 'ENVIADO':
+        // Quando uma mensagem é enviada, ela entra como "pending"
+        this.stats.pending++;
+        break;
+      case 'PROCESSANDO':
+        // Move de pending para processing
+        if (this.stats.pending > 0) {
+          this.stats.pending--;
         }
-      },
-      error: (error: any) => console.error('Erro ao carregar estatísticas:', error)
-    });
+        this.stats.processing++;
+        break;
+      case 'PROCESSADO_SUCESSO':
+        // Move de processing para completed
+        if (this.stats.processing > 0) {
+          this.stats.processing--;
+        }
+        this.stats.completed++;
+        break;
+      case 'FALHA_PROCESSAMENTO':
+        // Move de processing para failed
+        if (this.stats.processing > 0) {
+          this.stats.processing--;
+        }
+        this.stats.failed++;
+        break;
+    }
     
-    this.subscriptions.push(statsSubscription);
+    this.saveStats();
+  }
+
+  private saveStats(): void {
+    localStorage.setItem('dashboardStats', JSON.stringify(this.stats));
   }
 }

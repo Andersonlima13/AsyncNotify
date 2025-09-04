@@ -208,6 +208,9 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
             statusHistory: [{ status: 'ENVIADO', timestamp: now }]
           });
           
+          // Notificar o serviço que uma mensagem foi criada
+          this.notificationService.notifyMessageCreated(this.currentMessageId, 'ENVIADO');
+          
           this.generateUUID(); // Gerar novo UUID
           this.notificationForm.patchValue({ conteudoMensagem: '' });
           this.refreshStatus();

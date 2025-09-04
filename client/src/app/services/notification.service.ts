@@ -49,8 +49,19 @@ export class NotificationService {
     timestamp: string;
   } | null>(null);
 
+  private messageCreatedSubject = new BehaviorSubject<{
+    mensagemId: string;
+    status: string;
+  } | null>(null);
+
   public stats$ = this.statsSubject.asObservable();
   public messageStatusUpdate$ = this.messageStatusSubject.asObservable();
+  public messageCreated$ = this.messageCreatedSubject.asObservable();
+
+  // Método para notificar quando uma mensagem é criada
+  notifyMessageCreated(mensagemId: string, status: string): void {
+    this.messageCreatedSubject.next({ mensagemId, status });
+  }
 
   constructor(private http: HttpClient) {
     this.connectWebSocket();
