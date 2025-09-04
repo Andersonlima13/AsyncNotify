@@ -14,25 +14,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Send, Bell, Clock, Server, ArrowLeftRight, Plug, ChartBar, Trash, CheckCircle, AlertCircle, Loader, XCircle } from "lucide-react";
 
-interface QueueStats {
-  pending: number;
-  processing: number;
-  completed: number;
-  failed: number;
+interface EstatisticasFila {
+  pendente: number;
+  processando: number;
+  concluido: number;
+  falhado: number;
 }
 
-interface MessageLog {
+interface LogMensagem {
   id: string;
   timestamp: string;
-  action: string;
-  details: string;
-  status: 'success' | 'processing' | 'error' | 'info';
+  acao: string;
+  detalhes: string;
+  status: 'sucesso' | 'processando' | 'erro' | 'info';
 }
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const [messageLogs, setMessageLogs] = useState<MessageLog[]>([]);
-  const [queueStats, setQueueStats] = useState<QueueStats>({ pending: 0, processing: 0, completed: 0, failed: 0 });
+  const [logsMensagem, setLogsMensagem] = useState<LogMensagem[]>([]);
+  const [estatisticasFila, setEstatisticasFila] = useState<EstatisticasFila>({ pendente: 0, processando: 0, concluido: 0, falhado: 0 });
   
   const { isConnected, lastMessage } = useWebSocket();
 
@@ -66,31 +66,31 @@ export default function Dashboard() {
     },
     onSuccess: (data) => {
       toast({
-        title: "Notification Sent",
-        description: "Your notification has been queued successfully.",
+        title: "Notificação Enviada",
+        description: "Sua notificação foi enfileirada com sucesso.",
       });
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/queue/stats"] });
       
-      // Add to message log
-      addMessageLog({
-        action: "Notification queued successfully",
-        details: `ID: ${data.notification.id} | Recipient: ${data.notification.recipient}`,
-        status: "success",
+      // Adicionar ao log de mensagens
+      adicionarLogMensagem({
+        acao: "Notificação enfileirada com sucesso",
+        detalhes: `ID: ${data.notification.id} | Destinatário: ${data.notification.recipient}`,
+        status: "sucesso",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: "Failed to send notification. Please try again.",
+        title: "Erro",
+        description: "Falha ao enviar notificação. Tente novamente.",
         variant: "destructive",
       });
       
-      addMessageLog({
-        action: "Failed to queue notification",
-        details: error instanceof Error ? error.message : "Unknown error",
-        status: "error",
+      adicionarLogMensagem({
+        acao: "Falha ao enfileirar notificação",
+        detalhes: error instanceof Error ? error.message : "Erro desconhecido",
+        status: "erro",
       });
     },
   });
@@ -103,28 +103,28 @@ export default function Dashboard() {
         
         switch (data.type) {
           case 'initial_data':
-            setQueueStats(data.queueStats);
+            setEstatisticasFila(data.queueStats);
             break;
             
           case 'status_update':
             queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
             queryClient.invalidateQueries({ queryKey: ["/api/queue/stats"] });
             
-            addMessageLog({
-              action: `Notification status updated to ${data.status}`,
-              details: `ID: ${data.notificationId}`,
-              status: data.status === 'completed' ? 'success' : data.status === 'failed' ? 'error' : 'processing',
+            adicionarLogMensagem({
+              acao: `Status da notificação atualizado para ${data.status}`,
+              detalhes: `ID: ${data.notificationId}`,
+              status: data.status === 'completed' ? 'sucesso' : data.status === 'failed' ? 'erro' : 'processando',
             });
             break;
             
           case 'queue_stats':
-            setQueueStats(data.stats);
+            setEstatisticasFila(data.stats);
             break;
             
           case 'system_event':
-            addMessageLog({
-              action: data.event,
-              details: data.details,
+            adicionarLogMensagem({
+              acao: data.event,
+              detalhes: data.details,
               status: 'info',
             });
             break;
@@ -138,26 +138,26 @@ export default function Dashboard() {
   // Update queue stats from API data
   useEffect(() => {
     if (statsData?.stats) {
-      setQueueStats(statsData.stats);
+      setEstatisticasFila(statsData.stats);
     }
   }, [statsData]);
 
-  function addMessageLog(log: Omit<MessageLog, 'id' | 'timestamp'>) {
-    const newLog: MessageLog = {
+  function adicionarLogMensagem(log: Omit<LogMensagem, 'id' | 'timestamp'>) {
+    const newLog: LogMensagem = {
       ...log,
       id: Math.random().toString(36).substr(2, 9),
       timestamp: new Date().toLocaleTimeString(),
     };
     
-    setMessageLogs(prev => [newLog, ...prev].slice(0, 20)); // Keep only last 20 logs
+    setLogsMensagem(prev => [newLog, ...prev].slice(0, 20)); // Manter apenas os últimos 20 logs
   }
 
   function onSubmit(data: any) {
     createNotificationMutation.mutate(data);
   }
 
-  function clearLogs() {
-    setMessageLogs([]);
+  function limparLogs() {
+    setLogsMensagem([]);
   }
 
   function getStatusIcon(status: string) {
@@ -190,13 +190,13 @@ export default function Dashboard() {
     }
   }
 
-  function getLogStatusColor(status: string) {
+  function obterCorStatusLog(status: string) {
     switch (status) {
-      case 'success':
+      case 'sucesso':
         return 'text-green-600';
-      case 'processing':
+      case 'processando':
         return 'text-blue-600';
-      case 'error':
+      case 'erro':
         return 'text-red-600';
       case 'info':
         return 'text-green-600';
@@ -213,18 +213,18 @@ export default function Dashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <Bell className="text-primary text-2xl" />
-              <h1 className="text-xl font-semibold text-foreground">Async Notification System</h1>
+              <h1 className="text-xl font-semibold text-foreground">Sistema de Notificações Assíncronas</h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                 <span className={`text-sm font-medium ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
-                  WebSocket {isConnected ? 'Connected' : 'Disconnected'}
+                  WebSocket {isConnected ? 'Conectado' : 'Desconectado'}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <Server className="text-muted-foreground w-4 h-4" />
-                <span className="text-sm text-muted-foreground">RabbitMQ: Active</span>
+                <span className="text-sm text-muted-foreground">RabbitMQ: Ativo</span>
               </div>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Send className="text-primary mr-2 w-5 h-5" />
-                  Send Notification
+                  Enviar Notificação
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -251,10 +251,10 @@ export default function Dashboard() {
                       name="recipient"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Recipient</FormLabel>
+                          <FormLabel>Destinatário</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="user@example.com"
+                              placeholder="usuario@exemplo.com"
                               {...field}
                               data-testid="input-recipient"
                             />
@@ -269,10 +269,10 @@ export default function Dashboard() {
                       name="subject"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Subject</FormLabel>
+                          <FormLabel>Assunto</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Notification subject"
+                              placeholder="Assunto da notificação"
                               {...field}
                               data-testid="input-subject"
                             />
@@ -287,10 +287,10 @@ export default function Dashboard() {
                       name="message"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Message</FormLabel>
+                          <FormLabel>Mensagem</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Enter your notification message..."
+                              placeholder="Digite sua mensagem de notificação..."
                               rows={4}
                               className="resize-none"
                               {...field}
@@ -307,18 +307,18 @@ export default function Dashboard() {
                       name="priority"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Priority</FormLabel>
+                          <FormLabel>Prioridade</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger data-testid="select-priority">
-                                <SelectValue placeholder="Select priority" />
+                                <SelectValue placeholder="Selecionar prioridade" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
+                              <SelectItem value="low">Baixa</SelectItem>
+                              <SelectItem value="medium">Média</SelectItem>
+                              <SelectItem value="high">Alta</SelectItem>
+                              <SelectItem value="urgent">Urgente</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -337,7 +337,7 @@ export default function Dashboard() {
                       ) : (
                         <Send className="w-4 h-4 mr-2" />
                       )}
-                      {createNotificationMutation.isPending ? 'Sending...' : 'Send Notification'}
+                      {createNotificationMutation.isPending ? 'Enviando...' : 'Enviar Notificação'}
                     </Button>
                   </form>
                 </Form>
@@ -349,26 +349,26 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <ChartBar className="text-primary mr-2 w-5 h-5" />
-                  Queue Statistics
+                  Estatísticas da Fila
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-yellow-600" data-testid="stat-pending">{queueStats.pending}</div>
-                    <div className="text-sm text-muted-foreground">Pending</div>
+                    <div className="text-2xl font-bold text-yellow-600" data-testid="stat-pending">{estatisticasFila.pendente}</div>
+                    <div className="text-sm text-muted-foreground">Pendente</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600" data-testid="stat-processing">{queueStats.processing}</div>
-                    <div className="text-sm text-muted-foreground">Processing</div>
+                    <div className="text-2xl font-bold text-blue-600" data-testid="stat-processing">{estatisticasFila.processando}</div>
+                    <div className="text-sm text-muted-foreground">Processando</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600" data-testid="stat-completed">{queueStats.completed}</div>
-                    <div className="text-sm text-muted-foreground">Completed</div>
+                    <div className="text-2xl font-bold text-green-600" data-testid="stat-completed">{estatisticasFila.concluido}</div>
+                    <div className="text-sm text-muted-foreground">Concluído</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-red-600" data-testid="stat-failed">{queueStats.failed}</div>
-                    <div className="text-sm text-muted-foreground">Failed</div>
+                    <div className="text-2xl font-bold text-red-600" data-testid="stat-failed">{estatisticasFila.falhado}</div>
+                    <div className="text-sm text-muted-foreground">Falhado</div>
                   </div>
                 </div>
               </CardContent>
@@ -382,16 +382,16 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center">
                     <Clock className="text-primary mr-2 w-5 h-5" />
-                    Real-time Status
+                    Status em Tempo Real
                   </CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={clearLogs}
+                    onClick={limparLogs}
                     data-testid="button-clear-logs"
                   >
                     <Trash className="w-4 h-4 mr-1" />
-                    Clear
+                    Limpar
                   </Button>
                 </div>
               </CardHeader>
@@ -428,7 +428,7 @@ export default function Dashboard() {
                     
                     {(!notificationsData?.notifications || notificationsData.notifications.length === 0) && (
                       <div className="text-center py-8 text-muted-foreground">
-                        No notifications yet. Send your first notification above!
+                        Nenhuma notificação ainda. Envie sua primeira notificação acima!
                       </div>
                     )}
                   </div>
@@ -441,12 +441,12 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Clock className="text-primary mr-2 w-5 h-5" />
-                  Message Logs
+                  Logs de Mensagem
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="max-h-72 overflow-y-auto space-y-2">
-                  {messageLogs.map((log) => (
+                  {logsMensagem.map((log) => (
                     <div
                       key={log.id}
                       className="flex items-start space-x-3 p-3 bg-muted/30 rounded-md"
@@ -456,25 +456,25 @@ export default function Dashboard() {
                         {log.timestamp}
                       </div>
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-foreground">{log.action}</div>
-                        <div className="text-xs text-muted-foreground">{log.details}</div>
+                        <div className="text-sm font-medium text-foreground">{log.acao}</div>
+                        <div className="text-xs text-muted-foreground">{log.detalhes}</div>
                       </div>
                       <div className="flex items-center">
                         <div className={`w-2 h-2 rounded-full mr-2 ${
-                          log.status === 'success' ? 'bg-green-500' :
-                          log.status === 'processing' ? 'bg-blue-500' :
-                          log.status === 'error' ? 'bg-red-500' : 'bg-green-500'
+                          log.status === 'sucesso' ? 'bg-green-500' :
+                          log.status === 'processando' ? 'bg-blue-500' :
+                          log.status === 'erro' ? 'bg-red-500' : 'bg-green-500'
                         }`} />
-                        <span className={`text-xs font-medium uppercase ${getLogStatusColor(log.status)}`}>
+                        <span className={`text-xs font-medium uppercase ${obterCorStatusLog(log.status)}`}>
                           {log.status}
                         </span>
                       </div>
                     </div>
                   ))}
                   
-                  {messageLogs.length === 0 && (
+                  {logsMensagem.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
-                      No logs yet. Activity will appear here in real-time.
+                      Nenhum log ainda. Atividade aparecerá aqui em tempo real.
                     </div>
                   )}
                 </div>
@@ -483,13 +483,13 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* System Health Status */}
+        {/* Status de Saúde do Sistema */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">API Server</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Servidor API</h3>
                   <div className="text-2xl font-bold text-green-600 mt-1">Online</div>
                 </div>
                 <div className="text-green-600">
@@ -497,7 +497,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="mt-4 text-sm text-muted-foreground">
-                Uptime: Active
+                Tempo ativo: Ativo
               </div>
             </CardContent>
           </Card>
@@ -507,14 +507,14 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">RabbitMQ</h3>
-                  <div className="text-2xl font-bold text-green-600 mt-1">Connected</div>
+                  <div className="text-2xl font-bold text-green-600 mt-1">Conectado</div>
                 </div>
                 <div className="text-green-600">
                   <ArrowLeftRight className="w-8 h-8" />
                 </div>
               </div>
               <div className="mt-4 text-sm text-muted-foreground">
-                Processing queue
+                Processando fila
               </div>
             </CardContent>
           </Card>
@@ -525,7 +525,7 @@ export default function Dashboard() {
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">WebSocket</h3>
                   <div className={`text-2xl font-bold mt-1 ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
-                    {isConnected ? 'Active' : 'Disconnected'}
+                    {isConnected ? 'Ativo' : 'Desconectado'}
                   </div>
                 </div>
                 <div className={isConnected ? 'text-green-600' : 'text-red-600'}>
@@ -533,7 +533,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="mt-4 text-sm text-muted-foreground">
-                Real-time updates
+                Atualizações em tempo real
               </div>
             </CardContent>
           </Card>

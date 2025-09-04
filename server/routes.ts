@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertNotificationSchema } from "@shared/schema";
+import { insertNotificationSchema, notificarSchema } from "@shared/schema";
 import { publishNotification, connectRabbitMQ } from "./services/rabbitmq";
 import { setupWebSocket, broadcastQueueStats, broadcastSystemEvent } from "./services/websocket";
 
@@ -12,10 +12,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   try {
     await connectRabbitMQ();
     setupWebSocket(httpServer);
-    broadcastSystemEvent('system_start', 'Application services initialized');
+    broadcastSystemEvent('system_start', 'Serviços da aplicação inicializados');
   } catch (error) {
-    console.error('Failed to initialize services:', error);
+    console.error('Falha ao inicializar serviços:', error);
   }
+
+  // POST /api/notificar - Endpoint específico com mensagemId e conteudoMensagem
+  app.post("/api/notificar", async (req, res) => {
+    try {
+      const validatedData = notificarSchema.parse(req.body);
+      
+      // Criar notificação usando os dados validados
+      const notification = await storage.createNotification({
+        recipient: "sistema", // Valor padrão para compatibilidade
+        subject: `Mensagem ${validatedData.mensagemId}`,
+        message: validatedData.conteudoMensagem,
+        priority: "medium"
+      });
+      
+      // Publicar no RabbitMQ
+      await publishNotification(notification.id);
+      
+      // Atualizar estatísticas da fila
+      await broadcastQueueStats();
+      
+      res.status(201).json({
+        sucesso: true,
+        mensagemId: validatedData.mensagemId,
+        notificacaoId: notification.id,
+        mensagem: "Notificação enviada com sucesso"
+      });
+    } catch (error) {
+      console.error('Erro ao processar notificação:', error);
+      
+      if (error instanceof Error && error.message.includes('mensagemId') || error instanceof Error && error.message.includes('conteudoMensagem')) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: error.message
+        });
+      }
+      
+      res.status(400).json({
+        sucesso: false,
+        erro: "Falha ao processar notificação"
+      });
+    }
+  });
 
   // POST /api/notifications - Create and queue a new notification
   app.post("/api/notifications", async (req, res) => {
@@ -37,10 +79,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Notification queued successfully"
       });
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error('Erro ao criar notificação:', error);
       res.status(400).json({
         success: false,
-        message: error instanceof Error ? error.message : "Failed to create notification"
+        message: error instanceof Error ? error.message : "Falha ao criar notificação"
       });
     }
   });
@@ -54,10 +96,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notifications
       });
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('Erro ao buscar notificações:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to fetch notifications"
+        message: "Falha ao buscar notificações"
       });
     }
   });
@@ -69,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!notification) {
         return res.status(404).json({
           success: false,
-          message: "Notification not found"
+          message: "Notificação não encontrada"
         });
       }
       res.json({
@@ -77,10 +119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notification
       });
     } catch (error) {
-      console.error('Error fetching notification:', error);
+      console.error('Erro ao buscar notificação:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to fetch notification"
+        message: "Falha ao buscar notificação"
       });
     }
   });
@@ -94,10 +136,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stats
       });
     } catch (error) {
-      console.error('Error fetching queue stats:', error);
+      console.error('Erro ao buscar estatísticas da fila:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to fetch queue statistics"
+        message: "Falha ao buscar estatísticas da fila"
       });
     }
   });

@@ -32,10 +32,17 @@ export const insertNotificationSchema = createInsertSchema(notifications).pick({
   priority: true,
 });
 
+// Schema específico para o endpoint /api/notificar
+export const notificarSchema = z.object({
+  mensagemId: z.string().uuid("mensagemId deve ser um UUID válido"),
+  conteudoMensagem: z.string().min(1, "conteudoMensagem não pode estar vazio"),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+export type NotificarRequest = z.infer<typeof notificarSchema>;
 
 export const NotificationStatus = {
   PENDING: "pending",

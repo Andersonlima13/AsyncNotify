@@ -46,6 +46,7 @@ export class MemStorage implements IStorage {
       ...insertNotification,
       id,
       status: NotificationStatus.PENDING,
+      priority: insertNotification.priority || "medium",
       createdAt: now,
       updatedAt: now,
     };

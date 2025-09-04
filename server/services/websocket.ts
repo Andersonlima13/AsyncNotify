@@ -10,15 +10,15 @@ export function setupWebSocket(server: Server): void {
 
   wss.on('connection', (ws: WebSocket) => {
     clients.add(ws);
-    console.log('WebSocket client connected');
+    console.log('Cliente WebSocket conectado');
 
     ws.on('close', () => {
       clients.delete(ws);
-      console.log('WebSocket client disconnected');
+      console.log('Cliente WebSocket desconectado');
     });
 
     ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
+      console.error('Erro WebSocket:', error);
       clients.delete(ws);
     });
 
@@ -40,7 +40,7 @@ async function sendInitialData(ws: WebSocket): Promise<void> {
       }));
     }
   } catch (error) {
-    console.error('Error sending initial data:', error);
+    console.error('Erro ao enviar dados iniciais:', error);
   }
 }
 
@@ -73,7 +73,7 @@ export async function broadcastQueueStats(): Promise<void> {
       }
     });
   } catch (error) {
-    console.error('Error broadcasting queue stats:', error);
+    console.error('Erro ao transmitir estatísticas da fila:', error);
   }
 }
 

@@ -24,27 +24,27 @@ export async function connectRabbitMQ(): Promise<void> {
           await processNotification(notificationData);
           channel?.ack(msg);
         } catch (error) {
-          console.error('Error processing message:', error);
+          console.error('Erro ao processar mensagem:', error);
           channel?.nack(msg, false, false);
         }
       }
     });
 
-    console.log('Connected to RabbitMQ and listening for messages');
+    console.log('Conectado ao RabbitMQ e escutando mensagens');
   } catch (error) {
-    console.error('Failed to connect to RabbitMQ:', error);
+    console.error('Falha ao conectar ao RabbitMQ:', error);
     throw error;
   }
 }
 
 export async function publishNotification(notificationId: string): Promise<void> {
   if (!channel) {
-    throw new Error('RabbitMQ channel not available');
+    throw new Error('Canal RabbitMQ não disponível');
   }
 
   const notification = await storage.getNotification(notificationId);
   if (!notification) {
-    throw new Error('Notification not found');
+    throw new Error('Notificação não encontrada');
   }
 
   const message = {
@@ -59,7 +59,7 @@ export async function publishNotification(notificationId: string): Promise<void>
     persistent: true,
   });
 
-  console.log(`Published notification ${notificationId} to queue`);
+  console.log(`Notificação ${notificationId} publicada na fila`);
 }
 
 async function processNotification(notificationData: any): Promise<void> {
@@ -80,14 +80,14 @@ async function processNotification(notificationData: any): Promise<void> {
     if (success) {
       await storage.updateNotificationStatus(id, NotificationStatus.COMPLETED);
       broadcastStatusUpdate(id, NotificationStatus.COMPLETED);
-      console.log(`Successfully processed notification ${id}`);
+      console.log(`Notificação ${id} processada com sucesso`);
     } else {
       await storage.updateNotificationStatus(id, NotificationStatus.FAILED);
       broadcastStatusUpdate(id, NotificationStatus.FAILED);
-      console.log(`Failed to process notification ${id}`);
+      console.log(`Falha ao processar notificação ${id}`);
     }
   } catch (error) {
-    console.error(`Error processing notification ${id}:`, error);
+    console.error(`Erro ao processar notificação ${id}:`, error);
     await storage.updateNotificationStatus(id, NotificationStatus.FAILED);
     broadcastStatusUpdate(id, NotificationStatus.FAILED);
   }
