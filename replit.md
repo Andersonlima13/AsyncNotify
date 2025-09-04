@@ -8,7 +8,7 @@ Preferred communication style: Simple, everyday language.
 
 # System Architecture
 
-## Frontend Architecture
+## Frontend Architecture (Angular MVC)
 - **Framework**: React with TypeScript and Vite for development and building
 - **UI Components**: shadcn/ui component library with Radix UI primitives for accessible, customizable components
 - **Styling**: Tailwind CSS with custom design tokens and CSS variables for theming
@@ -17,8 +17,11 @@ Preferred communication style: Simple, everyday language.
 - **Form Handling**: React Hook Form with Zod validation for type-safe form management
 - **Real-time Updates**: Custom WebSocket hook for live data synchronization
 
-## Backend Architecture
+## Backend Architecture (MVC Pattern)
 - **Framework**: Express.js with TypeScript for API server
+- **Controllers**: Separated route handlers in `controllers/` directory for clean responsibility separation
+- **Services**: Business logic in `services/` for RabbitMQ and WebSocket management
+- **Bootstrap**: Service initialization separated from routing logic in `bootstrap.ts`
 - **Database ORM**: Drizzle ORM for type-safe database operations and schema management
 - **Message Queue**: RabbitMQ with amqplib for asynchronous notification processing
 - **Real-time Communication**: WebSocket server for broadcasting live updates to connected clients
@@ -42,6 +45,9 @@ Preferred communication style: Simple, everyday language.
 - **Development Tools**: Replit integration for cloud development environment
 
 ## Key Design Patterns
+- **MVC Architecture**: Both frontend (Angular) and backend (Express) follow MVC patterns for clear separation of concerns
+- **Frontend MVC**: Models in `models/`, Views in `views/` (HTML/CSS), Controllers in `controllers/` (Angular components)
+- **Backend MVC**: Controllers in `controllers/`, Services in `services/`, Bootstrap initialization separate from routing
 - **Shared Types**: Common schema definitions between frontend and backend for type safety
 - **Event-Driven Architecture**: RabbitMQ message queuing for decoupled notification processing
 - **Real-time Updates**: WebSocket broadcasting for live dashboard updates
