@@ -43,7 +43,14 @@ export class NotificationService {
     failed: 0
   });
 
+  private messageStatusSubject = new BehaviorSubject<{
+    mensagemId: string;
+    status: string;
+    timestamp: string;
+  } | null>(null);
+
   public stats$ = this.statsSubject.asObservable();
+  public messageStatusUpdate$ = this.messageStatusSubject.asObservable();
 
   constructor(private http: HttpClient) {
     this.connectWebSocket();
@@ -85,6 +92,13 @@ export class NotificationService {
         const data = JSON.parse(event.data);
         if (data.type === 'queue-stats') {
           this.statsSubject.next(data.stats);
+        } else if (data.type === 'message-status-update') {
+          // Emitir evento para componentes escutarem atualizações de status
+          this.messageStatusSubject.next({
+            mensagemId: data.mensagemId,
+            status: data.status,
+            timestamp: data.timestamp
+          });
         }
       } catch (error) {
         console.error('Erro ao processar mensagem WebSocket:', error);

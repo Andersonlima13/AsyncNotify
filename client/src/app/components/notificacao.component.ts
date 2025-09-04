@@ -173,6 +173,7 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.generateUUID();
     this.loadSentNotifications();
+    this.setupWebSocketListeners();
   }
 
   ngOnDestroy(): void {
@@ -277,7 +278,7 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
     }, 5000);
     
     // Salvar notificações no localStorage
-    localStorage.setItem('sentNotifications', JSON.stringify(this.sentNotifications));
+    this.saveSentNotifications();
   }
 
   getStatusClass(status: string): string {
@@ -308,5 +309,43 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
 
   formatDate(date: Date): string {
     return new Date(date).toLocaleString('pt-BR');
+  }
+
+  private setupWebSocketListeners(): void {
+    // Escutar atualizações de status via WebSocket
+    const statusSubscription = this.notificationService.messageStatusUpdate$.subscribe(
+      (update) => {
+        if (update) {
+          this.updateNotificationStatus(update.mensagemId, update.status);
+        }
+      }
+    );
+    this.subscriptions.push(statusSubscription);
+  }
+
+  private updateNotificationStatus(mensagemId: string, newStatus: string): void {
+    const notification = this.sentNotifications.find(n => n.mensagemId === mensagemId);
+    if (notification && notification.status !== newStatus) {
+      // Atualizar status atual
+      notification.status = newStatus;
+      
+      // Adicionar ao histórico se for um status novo
+      const lastHistoryStatus = notification.statusHistory[notification.statusHistory.length - 1]?.status;
+      if (lastHistoryStatus !== newStatus) {
+        notification.statusHistory.push({ 
+          status: newStatus, 
+          timestamp: new Date() 
+        });
+      }
+      
+      // Salvar no localStorage
+      this.saveSentNotifications();
+      
+      console.log(`Status atualizado via WebSocket: ${mensagemId} -> ${newStatus}`);
+    }
+  }
+
+  private saveSentNotifications(): void {
+    localStorage.setItem('sentNotifications', JSON.stringify(this.sentNotifications));
   }
 }
