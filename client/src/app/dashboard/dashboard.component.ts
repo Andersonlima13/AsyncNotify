@@ -62,6 +62,9 @@ import { NotificacaoComponent } from '../components/notificacao.component';
 export class DashboardComponent implements OnInit, OnDestroy {
   stats = { pending: 0, processing: 0, completed: 0, failed: 0 };
   
+  // Array para manter todas as mensagens e seus status
+  private allMessages: Array<{mensagemId: string; status: string}> = [];
+  
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -69,11 +72,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Escutar atualizações de status das mensagens para atualizar contadores
+    // Escutar atualizações de status das mensagens
     const messageStatusSubscription = this.notificationService.messageStatusUpdate$.subscribe(
       (update) => {
         if (update) {
-          this.updateStatsCounters(update.status);
+          this.updateMessageStatus(update.mensagemId, update.status);
         }
       }
     );
@@ -83,7 +86,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const messageCreatedSubscription = this.notificationService.messageCreated$.subscribe(
       (newMessage) => {
         if (newMessage) {
-          this.updateStatsCounters(newMessage.status);
+          this.addNewMessage(newMessage.mensagemId, newMessage.status);
         }
       }
     );
@@ -91,7 +94,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Carregar dados iniciais
     this.loadInitialData();
-    this.loadStatsFromLocalStorage();
   }
 
   ngOnDestroy(): void {
@@ -100,67 +102,84 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   private loadInitialData(): void {
-    // Carregar estatísticas de mensagens existentes do localStorage
-    this.calculateStatsFromSentNotifications();
-  }
-
-  private loadStatsFromLocalStorage(): void {
-    const saved = localStorage.getItem('dashboardStats');
-    if (saved) {
-      this.stats = JSON.parse(saved);
+    // Carregar array de mensagens do localStorage
+    const savedMessages = localStorage.getItem('dashboardMessages');
+    if (savedMessages) {
+      this.allMessages = JSON.parse(savedMessages);
+    } else {
+      // Se não existe array de mensagens, criar baseado nas notificações enviadas
+      this.initializeFromSentNotifications();
     }
+    
+    // Recalcular estatísticas baseado no array completo
+    this.recalculateStats();
   }
 
-  private calculateStatsFromSentNotifications(): void {
+  private initializeFromSentNotifications(): void {
     const saved = localStorage.getItem('sentNotifications');
     if (saved) {
       const sentNotifications = JSON.parse(saved);
       
-      // Resetar contadores
-      this.stats = { pending: 0, processing: 0, completed: 0, failed: 0 };
+      // Converter notificações enviadas para o formato do array de mensagens
+      this.allMessages = sentNotifications.map((notification: any) => ({
+        mensagemId: notification.mensagemId,
+        status: notification.status
+      }));
       
-      // Contar por status atual
-      sentNotifications.forEach((notification: any) => {
-        this.updateStatsCounters(notification.status);
-      });
-      
-      this.saveStats();
+      this.saveMessages();
     }
   }
 
-  private updateStatsCounters(status: string): void {
-    switch (status) {
-      case 'ENVIADO':
-        // Quando uma mensagem é enviada, ela entra como "pending"
-        this.stats.pending++;
-        break;
-      case 'PROCESSANDO':
-        // Move de pending para processing
-        if (this.stats.pending > 0) {
-          this.stats.pending--;
-        }
-        this.stats.processing++;
-        break;
-      case 'PROCESSADO_SUCESSO':
-        // Move de processing para completed
-        if (this.stats.processing > 0) {
-          this.stats.processing--;
-        }
-        this.stats.completed++;
-        break;
-      case 'FALHA_PROCESSAMENTO':
-        // Move de processing para failed
-        if (this.stats.processing > 0) {
-          this.stats.processing--;
-        }
-        this.stats.failed++;
-        break;
-    }
+  private addNewMessage(mensagemId: string, status: string): void {
+    // Verificar se a mensagem já existe no array
+    const existingIndex = this.allMessages.findIndex(m => m.mensagemId === mensagemId);
     
-    this.saveStats();
+    if (existingIndex === -1) {
+      // Adicionar nova mensagem
+      this.allMessages.push({ mensagemId, status });
+      this.saveMessages();
+      this.recalculateStats();
+    }
   }
 
-  private saveStats(): void {
-    localStorage.setItem('dashboardStats', JSON.stringify(this.stats));
+  private updateMessageStatus(mensagemId: string, newStatus: string): void {
+    // Encontrar e atualizar o status da mensagem no array
+    const messageIndex = this.allMessages.findIndex(m => m.mensagemId === mensagemId);
+    
+    if (messageIndex !== -1) {
+      this.allMessages[messageIndex].status = newStatus;
+      this.saveMessages();
+      this.recalculateStats();
+    }
+  }
+
+  private recalculateStats(): void {
+    // Resetar contadores
+    this.stats = { pending: 0, processing: 0, completed: 0, failed: 0 };
+    
+    // Contar todas as mensagens por status
+    this.allMessages.forEach(message => {
+      switch (message.status) {
+        case 'ENVIADO':
+          this.stats.pending++;
+          break;
+        case 'PROCESSANDO':
+          this.stats.processing++;
+          break;
+        case 'PROCESSADO_SUCESSO':
+          this.stats.completed++;
+          break;
+        case 'FALHA_PROCESSAMENTO':
+          this.stats.failed++;
+          break;
+      }
+    });
+    
+    console.log('Estatísticas recalculadas:', this.stats);
+    console.log('Total de mensagens:', this.allMessages.length);
+  }
+
+  private saveMessages(): void {
+    localStorage.setItem('dashboardMessages', JSON.stringify(this.allMessages));
   }
 }
