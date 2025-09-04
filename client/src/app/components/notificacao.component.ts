@@ -21,22 +21,17 @@ import {
       </h3>
       
       <form [formGroup]="notificationForm" (ngSubmit)="onSubmit()" class="space-y-4">
+        <!-- ID da mensagem (somente leitura) -->
         <div>
-          <label for="mensagemId" class="block text-sm font-medium text-gray-700 mb-1">
-            ID da Mensagem (UUID)
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            ID da Mensagem (Gerado Automaticamente)
           </label>
           <input
             type="text"
-            id="mensagemId"
-            formControlName="mensagemId"
-            placeholder="550e8400-e29b-41d4-a716-446655440000"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            [class.border-red-500]="notificationForm.get('mensagemId')?.invalid && notificationForm.get('mensagemId')?.touched"
+            [value]="currentMessageId"
+            readonly
+            class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
           />
-          <div *ngIf="notificationForm.get('mensagemId')?.invalid && notificationForm.get('mensagemId')?.touched" 
-               class="mt-1 text-sm text-red-600">
-            Por favor, insira um UUID válido
-          </div>
         </div>
 
         <div>
@@ -57,7 +52,7 @@ import {
           </div>
         </div>
 
-        <div class="flex justify-between items-center">
+        <div>
           <button
             type="submit"
             [disabled]="notificationForm.invalid || isSubmitting"
@@ -65,14 +60,6 @@ import {
           >
             <span *ngIf="!isSubmitting">Enviar Notificação</span>
             <span *ngIf="isSubmitting">Enviando...</span>
-          </button>
-          
-          <button
-            type="button"
-            (click)="generateUUID()"
-            class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-          >
-            Gerar UUID
           </button>
         </div>
       </form>
@@ -99,19 +86,36 @@ import {
         </li>
         
         <li *ngFor="let notification of sentNotifications" class="px-6 py-4">
-          <div class="flex items-center justify-between">
-            <div class="flex-1">
+          <div class="space-y-3">
+            <!-- Cabeçalho com status atual -->
+            <div class="flex items-center justify-between">
               <div class="text-sm font-medium text-gray-900">
-                {{notification.mensagemId}}
+                ID: {{notification.mensagemId}}
               </div>
-              <div class="text-sm text-gray-500 mt-1">
-                {{notification.conteudoMensagem}}
-              </div>
-            </div>
-            <div class="ml-4">
               <span [class]="getStatusClass(notification.status)" class="px-2 py-1 text-xs font-medium rounded-full">
                 {{getStatusText(notification.status)}}
               </span>
+            </div>
+            
+            <!-- Conteúdo da mensagem -->
+            <div class="bg-gray-50 p-3 rounded-md">
+              <div class="text-sm text-gray-700">
+                <strong>Conteúdo:</strong> {{notification.conteudoMensagem}}
+              </div>
+              <div class="text-xs text-gray-500 mt-1">
+                <strong>ID da Mensagem:</strong> {{notification.mensagemId}}
+              </div>
+            </div>
+            
+            <!-- Histórico de status -->
+            <div class="border-t pt-2">
+              <div class="text-xs font-medium text-gray-700 mb-2">Histórico de Status:</div>
+              <div class="space-y-1">
+                <div *ngFor="let statusEntry of notification.statusHistory" class="flex items-center justify-between text-xs">
+                  <span class="text-gray-600">{{getStatusText(statusEntry.status)}}</span>
+                  <span class="text-gray-500">{{formatDate(statusEntry.timestamp)}}</span>
+                </div>
+              </div>
             </div>
           </div>
         </li>
@@ -142,7 +146,13 @@ import {
 })
 export class NotificacaoComponent implements OnInit, OnDestroy {
   notificationForm: FormGroup;
-  sentNotifications: Array<{mensagemId: string; conteudoMensagem: string; status: string}> = [];
+  currentMessageId: string = '';
+  sentNotifications: Array<{
+    mensagemId: string; 
+    conteudoMensagem: string; 
+    status: string;
+    statusHistory: Array<{status: string; timestamp: Date}>
+  }> = [];
   
   isSubmitting = false;
   isRefreshing = false;
@@ -156,7 +166,6 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
     private notificationService: NotificationService
   ) {
     this.notificationForm = this.fb.group({
-      mensagemId: ['', [Validators.required, this.uuidValidator]],
       conteudoMensagem: ['', [Validators.required, Validators.minLength(1)]]
     });
   }
@@ -166,27 +175,12 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
     this.loadSentNotifications();
   }
 
-  generateUUID(): void {
-    const uuid = uuidv4();
-    this.notificationForm.patchValue({ mensagemId: uuid });
-  }
-
-  private loadSentNotifications(): void {
-    // Carregar notificações do localStorage se existirem
-    const saved = localStorage.getItem('sentNotifications');
-    if (saved) {
-      this.sentNotifications = JSON.parse(saved);
-      this.refreshStatus();
-    }
-  }
-
-  private uuidValidator(control: any) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(control.value) ? null : { invalidUuid: true };
-  }
-
   ngOnDestroy(): void {
     this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  generateUUID(): void {
+    this.currentMessageId = uuidv4();
   }
 
   onSubmit(): void {
@@ -194,7 +188,10 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
       this.isSubmitting = true;
       this.message = '';
       
-      const notification: NotificationRequest = this.notificationForm.value;
+      const notification: NotificationRequest = {
+        mensagemId: this.currentMessageId,
+        conteudoMensagem: this.notificationForm.value.conteudoMensagem
+      };
       
       const submitSubscription = this.notificationService.sendNotification(notification).subscribe({
         next: (response: any) => {
@@ -202,10 +199,12 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
           this.showMessage(`Notificação enviada com sucesso! ID: ${response.mensagemId}`, 'success');
           
           // Adicionar notificação à lista local
+          const now = new Date();
           this.sentNotifications.unshift({
-            mensagemId: notification.mensagemId,
+            mensagemId: this.currentMessageId,
             conteudoMensagem: notification.conteudoMensagem,
-            status: 'ENVIADO'
+            status: 'ENVIADO',
+            statusHistory: [{ status: 'ENVIADO', timestamp: now }]
           });
           
           this.generateUUID(); // Gerar novo UUID
@@ -223,11 +222,6 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
     }
   }
 
-  generateUUID(): void {
-    const uuid = uuidv4();
-    this.notificationForm.patchValue({ mensagemId: uuid });
-  }
-
   refreshStatus(): void {
     this.isRefreshing = true;
     
@@ -237,9 +231,18 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
         if (response.sucesso && response.mensagens) {
           // Atualizar status das notificações existentes
           this.sentNotifications.forEach(notification => {
-            const statusUpdate = response.mensagens?.find(m => m.mensagemId === notification.mensagemId);
-            if (statusUpdate) {
+            const statusUpdate = response.mensagens?.find((m: any) => m.mensagemId === notification.mensagemId);
+            if (statusUpdate && statusUpdate.status !== notification.status) {
+              // Atualizar status atual
               notification.status = statusUpdate.status;
+              // Adicionar ao histórico se for um status novo
+              const lastHistoryStatus = notification.statusHistory[notification.statusHistory.length - 1]?.status;
+              if (lastHistoryStatus !== statusUpdate.status) {
+                notification.statusHistory.push({ 
+                  status: statusUpdate.status, 
+                  timestamp: new Date() 
+                });
+              }
             }
           });
         }
@@ -251,21 +254,6 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
     });
     
     this.subscriptions.push(refreshSubscription);
-  }
-
-  private showMessage(text: string, type: 'success' | 'error'): void {
-    this.message = text;
-    this.messageClass = type === 'success' 
-      ? 'bg-green-50 border border-green-200 text-green-800'
-      : 'bg-red-50 border border-red-200 text-red-800';
-    
-    // Limpar mensagem após 5 segundos
-    setTimeout(() => {
-      this.message = '';
-    }, 5000);
-    
-    // Salvar notificações no localStorage
-    localStorage.setItem('sentNotifications', JSON.stringify(this.sentNotifications));
   }
 
   private loadSentNotifications(): void {
@@ -318,8 +306,7 @@ export class NotificacaoComponent implements OnInit, OnDestroy {
     }
   }
 
-  private uuidValidator(control: any) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(control.value) ? null : { invalidUuid: true };
+  formatDate(date: Date): string {
+    return new Date(date).toLocaleString('pt-BR');
   }
 }
