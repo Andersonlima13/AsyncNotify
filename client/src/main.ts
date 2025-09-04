@@ -239,6 +239,13 @@ class NotificationSystem {
 
       if (response.ok) {
         this.showMessage(`Notificação enviada com sucesso! ID: ${result.mensagemId}`, 'success');
+        
+        // Adicionar imediatamente à lista com status "AGUARDANDO PROCESSAMENTO"
+        this.addMessageToList({
+          mensagemId: notification.mensagemId,
+          status: 'AGUARDANDO_PROCESSAMENTO'
+        });
+        
         this.generateUUID();
         (document.getElementById('conteudoMensagem') as HTMLTextAreaElement).value = '';
         this.refreshStatus();
@@ -325,6 +332,21 @@ class NotificationSystem {
     }
   }
 
+  private addMessageToList(message: {mensagemId: string; status: string}): void {
+    // Verificar se a mensagem já existe na lista
+    const existingIndex = this.messages.findIndex(m => m.mensagemId === message.mensagemId);
+    
+    if (existingIndex >= 0) {
+      // Atualizar status da mensagem existente
+      this.messages[existingIndex].status = message.status;
+    } else {
+      // Adicionar nova mensagem no início da lista
+      this.messages.unshift(message);
+    }
+    
+    this.updateMessagesList();
+  }
+
   private updateMessagesList(): void {
     const container = document.getElementById('messages-list') as HTMLElement;
     
@@ -361,6 +383,10 @@ class NotificationSystem {
         return 'bg-green-100 text-green-800';
       case 'FALHA_PROCESSAMENTO':
         return 'bg-red-100 text-red-800';
+      case 'AGUARDANDO_PROCESSAMENTO':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'PROCESSANDO':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -372,6 +398,10 @@ class NotificationSystem {
         return 'Sucesso';
       case 'FALHA_PROCESSAMENTO':
         return 'Falha';
+      case 'AGUARDANDO_PROCESSAMENTO':
+        return 'Aguardando Processamento';
+      case 'PROCESSANDO':
+        return 'Processando';
       default:
         return status;
     }
@@ -400,6 +430,12 @@ class NotificationSystem {
         if (data.type === 'queue-stats') {
           this.stats = data.stats;
           this.updateStats();
+        } else if (data.type === 'message-status-update') {
+          // Atualizar status específico de uma mensagem
+          this.addMessageToList({
+            mensagemId: data.mensagemId,
+            status: data.status
+          });
         }
       } catch (error) {
         console.error('Erro ao processar mensagem WebSocket:', error);

@@ -91,3 +91,18 @@ export function broadcastSystemEvent(event: string, details: string): void {
     }
   });
 }
+
+export function broadcastMessageStatusUpdate(mensagemId: string, status: string): void {
+  const message = JSON.stringify({
+    type: 'message-status-update',
+    mensagemId,
+    status,
+    timestamp: new Date().toISOString(),
+  });
+
+  clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}

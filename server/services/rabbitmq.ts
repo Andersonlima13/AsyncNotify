@@ -1,7 +1,7 @@
 import amqp, { Connection, Channel } from 'amqplib';
 import { storage } from '../storage';
 import { NotificationStatus } from '@shared/schema';
-import { broadcastStatusUpdate } from './websocket';
+import { broadcastStatusUpdate, broadcastMessageStatusUpdate } from './websocket';
 
 const RABBITMQ_URL = 'amqp://bjnuffmq:gj-YQIiEXyfxQxjsZtiYDKeXIT8ppUq7@jaragua-01.lmq.cloudamqp.com/bjnuffmq';
 const ENTRADA_QUEUE_NAME = 'fila.notificacao.entrada.Anderson-Lima';
@@ -123,6 +123,11 @@ async function processEntradaMessage(messageData: any): Promise<void> {
     const trackingId = mensagemId || id;
     messageStatusMap.set(trackingId, 'PROCESSANDO');
     
+    // Emitir status inicial via WebSocket
+    if (mensagemId) {
+      broadcastMessageStatusUpdate(mensagemId, 'PROCESSANDO');
+    }
+    
     // Simular processamento assíncrono (1-2 segundos)
     const processingTime = 1000 + Math.random() * 1000;
     await new Promise(resolve => setTimeout(resolve, processingTime));
@@ -142,6 +147,11 @@ async function processEntradaMessage(messageData: any): Promise<void> {
     
     // Atualizar status no Map
     messageStatusMap.set(trackingId, status);
+    
+    // Emitir status atualizado via WebSocket
+    if (mensagemId) {
+      broadcastMessageStatusUpdate(mensagemId, status);
+    }
     
     // Publicar status na fila de status
     await publishStatusMessage(trackingId, status);
