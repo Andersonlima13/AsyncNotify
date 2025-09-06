@@ -21,6 +21,21 @@ export async function initializeServices(httpServer: Server): Promise<void> {
     
   } catch (error) {
     console.error('❌ Falha ao inicializar serviços:', error);
+    
+    // Em modo desenvolvimento, continuar sem RabbitMQ
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  Continuando sem RabbitMQ (modo desenvolvimento)');
+      
+      // Configurar WebSocket mesmo sem RabbitMQ
+      setupWebSocket(httpServer);
+      console.log('✓ WebSocket configurado com sucesso (modo desenvolvimento)');
+      
+      // Notificar que os serviços foram inicializados em modo desenvolvimento
+      broadcastSystemEvent('system_start', 'Serviços da aplicação inicializados (modo desenvolvimento)');
+      console.log('✓ Serviços inicializados em modo desenvolvimento');
+      return;
+    }
+    
     throw error;
   }
 }
